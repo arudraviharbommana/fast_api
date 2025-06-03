@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
 from transformers import (
@@ -152,19 +152,43 @@ class TextRequest(BaseModel):
 
 # Endpoints
 @app.post("/summarize", response_class=PlainTextResponse)
-async def summarize_text(text: str = Form(...)):
-    summary = summarize(text)
+async def summarize_text(req: TextRequest = None, file: UploadFile = File(None)):
+    if req and req.text:
+        summary = summarize(req.text)
+    elif file:
+        contents = await file.read()
+        text = contents.decode("utf-8")
+        summary = summarize(text)
+    else:
+        return "No input provided."
+    
     return Response(content=summary, media_type="text/plain")
 
 @app.post("/generate-quiz", response_class=PlainTextResponse)
-async def get_quiz(text: str = Form(...)):
-    quiz = generate_quiz(text)
+async def get_quiz(req: TextRequest = None, file: UploadFile = File(None)):
+    if req and req.text:
+        quiz = generate_quiz(req.text)
+    elif file:
+        contents = await file.read()
+        text = contents.decode("utf-8")
+        quiz = generate_quiz(text)
+    else:
+        return "No input provided."
+    
     quiz_text = quiz_to_text(quiz)
     return Response(content=quiz_text, media_type="text/plain")
 
 @app.post("/qa", response_class=PlainTextResponse)
-async def get_answer(context: str = Form(...), question: str = Form(...)):
-    answer = answer_question(context, question)
+async def get_answer(req: QARequest = None, file: UploadFile = File(None)):
+    if req and req.context and req.question:
+        answer = answer_question(req.context, req.question)
+    elif file and req.question:
+        contents = await file.read()
+        context = contents.decode("utf-8")
+        answer = answer_question(context, req.question)
+    else:
+        return "No input provided."
+    
     return Response(content=answer, media_type="text/plain")
 
 def main():
@@ -173,4 +197,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# To run the app:
+# uvicorn filename:app --reload
 
